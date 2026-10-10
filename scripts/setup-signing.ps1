@@ -9,7 +9,8 @@ $backup = Join-Path $dir "release-credentials.txt"
 if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
     throw "GitHub CLI (gh) is missing: https://cli.github.com/"
 }
-$keytoolExe = (Get-Command keytool -ErrorAction SilentlyContinue)?.Source
+$keytoolCmd = Get-Command keytool -ErrorAction SilentlyContinue
+$keytoolExe = if ($keytoolCmd) { $keytoolCmd.Source } else { $null }
 if (-not $keytoolExe -and $env:JAVA_HOME) {
     $candidate = Join-Path $env:JAVA_HOME "bin\keytool.exe"
     if (Test-Path $candidate) { $keytoolExe = $candidate }
