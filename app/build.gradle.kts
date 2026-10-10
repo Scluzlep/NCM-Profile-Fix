@@ -10,8 +10,9 @@ android {
         applicationId = "com.scluzlep.ncmprofilefix"
         minSdk = 26
         targetSdk = 28
-        versionCode = 1
-        versionName = "0.1.0"
+        // Release tags set these via GitHub Actions; local builds keep stable defaults.
+        versionCode = System.getenv("NCM_VERSION_CODE")?.toIntOrNull() ?: 1
+        versionName = System.getenv("NCM_VERSION_NAME") ?: "0.1.0"
     }
 
     signingConfigs {
