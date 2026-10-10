@@ -1,63 +1,53 @@
 # NCM Profile Fix
 
-专为 **网易云音乐 Android 8.10.50** 设计的 **LSPosed Modern API 102** 兼容补丁。
+**已通过真机验证** · 网易云音乐 Android **8.10.50** · **LSPosed Modern API 102**
 
-## 问题与验证
+修复旧版网易云音乐进入自己的个人主页时提示 **“加载失败，请稍后再试”** 的问题，同时保留个人评论模块。
 
-旧版网易云请求自己的个人主页时，服务端额外下发 `PERSONAL_MY_COMMENT` 模块。模块里的歌曲/歌手/专辑部分 `alias` 属性现在可能是 JSON 字符串或 `null`，而客户端旧版 `Comment.fromJson()` 使用 `JSONObject.getJSONArray("alias")`，导致 `JSONException` 和“加载失败，请稍后再试”。
+## 原因与验证
 
-已经使用本机 MITM 的两轮 A/B 测试验证：
-- 删除完整 `PERSONAL_MY_COMMENT` 模块：主页恢复正常。
-- 保留评论模块，只规范化 `alias` 字段类型：主页同样恢复正常。
+网易云服务端为本人主页下发 `PERSONAL_MY_COMMENT` 模块，其中部分歌曲、歌手或专辑信息的 `alias` 属性现在可能为 JSON 字符串或 `null`。旧版客户端在 `Comment.fromJson()` 中把它作为 `JSONArray` 读取，触发 `JSONException`，使个人主页加载失败。
 
-**注意：** A/B 测试确认的是网络响应修补思路。该独立 LSPosed APK 尚未经过真机验证。
+问题定位与验证过程：
 
-## 修复范围
+1. 访问他人主页正常（没有返回该评论模块），访问本人主页失败。
+2. Android `logcat` 记录到 `Comment.fromJson()` / `getJSONArray("alias")` 类型转换异常。
+3. 本机 MITM 测试：删除评论模块，主页可正常加载。
+4. 本机 MITM 测试：保留评论模块，仅纠正 `alias` 类型，主页仍可正常加载。
+5. **LSPosed 模块已在真机安装测试，用户确认修复成功。**
 
-- 只注入 `com.netease.cloudmusic`。
-- 使用 Modern libxposed API 102：`META-INF/xposed/java_init.list`，不是旧式 `IXposedHookLoadPackage`。
-- 在网易云进程中 Hook `JSONObject.getJSONArray(String)`，**仅当字段名为 `alias` 且当前调用栈含 `com.netease.cloudmusic.meta.Comment.fromJson`** 时生效。
-- 字符串转换为数组（空字符串转 `[]`，非空字符串转 `[value]`）；JSON null 转 `[]`。
-- 原本已经是数组的值、其他字段、其他解析调用全部保持原状。
-- 不要求网络权限，不读取 Cookie，不上传个人资料。
+## 修复方式
+
+- 仅作用于网易云音乐进程：`com.netease.cloudmusic`。
+- 使用 `io.github.libxposed:api:102.0.0`（Modern API），不使用旧版 `IXposedHookLoadPackage`。
+- Hook `JSONObject.getJSONArray(String)`，仅当参数是 `alias` 且调用栈包含 `com.netease.cloudmusic.meta.Comment.fromJson` 时修正类型。
+- 空字符串与 `null` 转为 `[]`，其他非空字符串转为包含该字符串的数组；原本正确的数组及其他字段保持不变。
+- 不需要网络权限，不读取账号 Cookie，也不收集或上传个人信息。
 
 ## 下载安装
 
-打开仓库的 **Actions → Android APK**，选择最新成功的 Run，在底部 **Artifacts** 下载：
-- `ncm-profile-fix-debug-ephemeral-signature`：可以直接做首次测试，但不同 Actions Runner 产生的调试签名不一定一样。
-- `ncm-profile-fix-release-signed`：设置好持久化签名 Secrets 后生成，适合以后持续覆盖升级。
+前往 **[Releases](https://github.com/Scluzlep/NCM-Profile-Fix/releases)**，下载最新版本的 **`NCM-Profile-Fix-v*.apk`**。
 
-安装 APK → LSPosed 管理器中启用模块 → 只勾选网易云音乐作用域 → 强行停止网易云 → 重新打开个人主页。记录日志：
+安装 APK → 在支持 Modern API 102 的 LSPosed 管理器中启用模块 → 作用域选择 **网易云音乐** → 强制停止网易云音乐并重新打开 → 进入自己的个人主页。
+
+如果要排查运行状态，可使用：
 
 ```sh
 adb logcat -s NCMProfileFix:I '*:S'
 ```
 
-若不能加载，请关闭模块并导出网易云的 logcat，优先检查有无 `Hook installation failed` 及 `JSONException`。不必清除网易云数据。
+若模块未生效，先检查作用域、LSPosed API 102 支持情况及日志。无需清除网易云账号数据。
 
-## 持久化签名
+## 兼容性
 
-**不要**将 `.p12`、密码或完整用户 HAR 提交到公开仓库。GitHub Actions 的 Secrets 需要四项：
-
-| Secret | 作用 |
+| 项目 | 状态 |
 |---|---|
-| `KEYSTORE_BASE64` | PKCS#12 签名文件的 Base64 |
-| `KEYSTORE_PASSWORD` | 密钥库密码 |
-| `KEY_ALIAS` | 签名别名 |
-| `KEY_PASSWORD` | 私钥密码 |
+| 网易云音乐 Android 8.10.50 | 已真机验证 |
+| LSPosed Modern API 102 | 已真机验证 |
+| 其他版本网易云音乐 | 尚未逐个测试 |
+| 其他音乐客户端 | 不支持，且不在作用域内 |
 
-在可信本地 Linux / macOS / WSL / Git Bash 环境准备 `keytool`、`openssl`、`base64`、`gh`，然后执行一次：
-
-```sh
-gh auth login
-bash scripts/setup-signing.sh
-```
-
-脚本生成一次有效期约 100 年的 RSA 签名密钥，将敏感值存到 GitHub Secrets，同时在本地留下**必须另行备份**的 `.p12` 文件和密码文件。之后每次 Actions 编译复用同一证书。GitHub Secrets 设置好后手动重跑 workflow 或推送代码即可生成正式签名 APK。
-
-调试 APK 和正式签名 APK **不能直接互相覆盖安装**；首次长期使用建议直接安装正式签名版本。
-
-## 开发编译
+## 自行编译
 
 需要 JDK 17、Android SDK Platform 36、Gradle 8.13：
 
@@ -65,10 +55,6 @@ bash scripts/setup-signing.sh
 gradle :app:assembleDebug
 ```
 
-GitHub Actions 会自动安装构建环境，仓库无需提交 Gradle Wrapper 或 Android SDK。
+推送至 `main` 会在 GitHub Actions 构建测试 APK；推送版本标签 `vX.Y.Z` 时，在签名配置完成且构建通过后自动发布 GitHub Release。
 
-## 状态
-
-- 代码：实验性；首次构建与真机 Hook 尚待验证。
-- API：`io.github.libxposed:api:102.0.0`（`compileOnly`）。
-- 仅明确针对网易云音乐 8.10.50，其他版本可能有不同解析逻辑。
+**说明：** Android 应用的签名证书必须一致才能覆盖升级。以前从 Actions 下载的临时调试签名包不能直接被正式 Release APK 覆盖安装。
