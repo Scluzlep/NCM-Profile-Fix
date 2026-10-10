@@ -39,6 +39,12 @@ android {
         }
     }
 
+    // This LSPosed module is distributed outside Google Play; targeting API 28
+    // preserves its tested Android compatibility behavior.
+    lint {
+        disable += "ExpiredTargetSdkVersion"
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
