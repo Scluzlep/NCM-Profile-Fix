@@ -1,0 +1,61 @@
+name: Android APK
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+      KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android platform
+        run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Build debug APK
+        run: gradle :app:assembleDebug --stacktrace --no-daemon
+      - name: Upload debug test APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ncm-profile-fix-debug-ephemeral-signature
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+      - name: Restore release signing keystore
+        if: env.KEYSTORE_BASE64 != '' && env.KEYSTORE_PASSWORD != '' && env.KEY_ALIAS != '' && env.KEY_PASSWORD != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/ncm-release.jks"
+          echo "NCM_KEYSTORE_FILE=$RUNNER_TEMP/ncm-release.jks" >> "$GITHUB_ENV"
+      - name: Build release APK
+        if: env.NCM_KEYSTORE_FILE != ''
+        run: gradle :app:assembleRelease --stacktrace --no-daemon
+      - name: Upload consistently signed release
+        if: env.NCM_KEYSTORE_FILE != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: ncm-profile-fix-release-signed
+          path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+      - name: Publish signed GitHub Release for version tags
+        if: startsWith(github.ref, 'refs/tags/v') && env.NCM_KEYSTORE_FILE != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          files: app/build/outputs/apk/release/*.apk
