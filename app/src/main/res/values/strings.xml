@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">NCM Profile Fix</string>
+    <string name="app_description">LSPosed API 102 compatibility fix for old NetEase Cloud Music profile comments.</string>
+</resources>
