@@ -1,6 +1,6 @@
 # NCM Profile Fix
 
-**已通过真机验证** · 网易云音乐 Android **8.10.50** · **LSPosed Modern API 102**
+网易云音乐 Android **8.10.50** · **LSPosed Modern API 102**
 
 修复旧版网易云音乐进入自己的个人主页时提示 **“加载失败，请稍后再试”** 的问题，同时保留个人评论模块。
 
@@ -14,7 +14,6 @@
 2. Android `logcat` 记录到 `Comment.fromJson()` / `getJSONArray("alias")` 类型转换异常。
 3. 本机 MITM 测试：删除评论模块，主页可正常加载。
 4. 本机 MITM 测试：保留评论模块，仅纠正 `alias` 类型，主页仍可正常加载。
-5. **LSPosed 模块已在真机安装测试，用户确认修复成功。**
 
 ## 修复方式
 
@@ -45,7 +44,6 @@ adb logcat -s NCMProfileFix:I '*:S'
 | 网易云音乐 Android 8.10.50 | 已真机验证 |
 | LSPosed Modern API 102 | 已真机验证 |
 | 其他版本网易云音乐 | 尚未逐个测试 |
-| 其他音乐客户端 | 不支持，且不在作用域内 |
 
 ## 自行编译
 
@@ -56,5 +54,3 @@ gradle :app:assembleDebug
 ```
 
 推送至 `main` 会在 GitHub Actions 构建测试 APK；推送版本标签 `vX.Y.Z` 时，在签名配置完成且构建通过后自动发布 GitHub Release。
-
-**说明：** Android 应用的签名证书必须一致才能覆盖升级。以前从 Actions 下载的临时调试签名包不能直接被正式 Release APK 覆盖安装。
