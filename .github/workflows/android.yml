@@ -12,6 +12,8 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      HAS_SIGNING_SECRETS: ${{ secrets.KEYSTORE_BASE64 != '' && secrets.KEYSTORE_PASSWORD != '' && secrets.KEY_ALIAS != '' && secrets.KEY_PASSWORD != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -64,7 +66,7 @@ jobs:
           echo "NCM_VERSION_CODE=$version_code" >> "$GITHUB_ENV"
 
       - name: Restore persistent signing key
-        if: github.ref_type == 'tag'
+        if: github.ref_type == 'tag' || env.HAS_SIGNING_SECRETS == 'true'
         shell: bash
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -85,7 +87,7 @@ jobs:
           echo "NCM_KEYSTORE_FILE=$RUNNER_TEMP/ncm-release.p12" >> "$GITHUB_ENV"
 
       - name: Build signed release APK
-        if: github.ref_type == 'tag'
+        if: github.ref_type == 'tag' || env.HAS_SIGNING_SECRETS == 'true'
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
@@ -93,18 +95,19 @@ jobs:
         run: gradle :app:assembleRelease --stacktrace --no-daemon
 
       - name: Verify signed APK and prepare release assets
-        if: github.ref_type == 'tag'
+        if: github.ref_type == 'tag' || env.HAS_SIGNING_SECRETS == 'true'
         shell: bash
         run: |
           set -euo pipefail
           source_apk="app/build/outputs/apk/release/app-release.apk"
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$source_apk"
           mkdir -p release_assets
-          cp "$source_apk" "release_assets/NCM-Profile-Fix-v${NCM_VERSION_NAME}.apk"
+          name="${NCM_VERSION_NAME:-0.1.0}"
+          cp "$source_apk" "release_assets/NCM-Profile-Fix-v${name}.apk"
           (cd release_assets && sha256sum *.apk > SHA256SUMS.txt)
 
       - name: Upload signed release artifact
-        if: github.ref_type == 'tag'
+        if: github.ref_type == 'tag' || env.HAS_SIGNING_SECRETS == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: ncm-profile-fix-release-signed
