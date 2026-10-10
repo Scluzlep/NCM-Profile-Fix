@@ -1,0 +1,10 @@
+id=com.scluzlep.ncmprofilefix
+name=NCM Profile Fix
+version=v0.1.0
+versionCode=1
+author=Scluzlep
+description=Fix JSON alias types while parsing personal homepage comments on NCM 8.10.50
+minApiVersion=102
+targetApiVersion=102
+staticScope=true
+exceptionMode=protective
